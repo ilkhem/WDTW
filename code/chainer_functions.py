@@ -14,16 +14,15 @@ def _check_ndim(in_type, lower=1, upper=2):
 class Conv(Function):
     def __init__(self, h, axes):
         self.h = h
+        self.axes = axes
         if axes is None:
             self.axes = [0, 1, 2, 3]
-        else:
-            self.axes = axes
 
     def check_type_forward(self, in_types):
         type_check.expect(in_types.size() == 1)
         x_type, = in_types
         type_check.expect(x_type.ndim == 4)
-        if self.axes is not None:
+        if self.axes:
             type_check.expect(x_type.ndim == len(self.axes))
         type_check.expect(x_type.dtype.kind == 'f')
 
@@ -44,9 +43,19 @@ class Conv(Function):
     def backward(self, inputs, grad_outputs):
         go, = grad_outputs
         x, = inputs
-        assert x.shape == go.shape
-        print(go.shape)
-        return (self.h.transpose().dot(go.reshape((self.h.shape[1], int(go.size / self.h.shape[1]))))).reshape(x.shape),
+        xp = cuda.get_array_module(x)
+        # assert x.shape == go.shape
+        # print(go.shape)
+        inv_axes = self.axes
+        if self.axes:
+            axes = [ax % len(self.axes) for ax in self.axes]
+            inv_axes = list(np.argsort(axes))
+        print(self.axes)
+        print(inv_axes)
+        return xp.reshape(xp.dot(self.h.transpose(),
+                                 xp.reshape(go,
+                                            (self.h.shape[1], int(go.size / self.h.shape[1])))),
+                          x.transpose(self.axes).shape).transpose(inv_axes),
 
 
 def conv(x, h, axes=None):
@@ -101,6 +110,7 @@ if __name__ == '__main__':
     # from chainer import Variable
     # from _utils import xi, xi_chainer, f, f_chainer
     # from chainer.functions.array.transpose import transpose
+    # from chainer.functions.math.sum import sum
     #
     # d1 = 2
     # d2 = 3
@@ -114,19 +124,27 @@ if __name__ == '__main__':
     # hz = np.exp(-np.power(np.abs(a - b), 2) / (2 * 1 ** 2))
     #
     # xv = Variable(x)
+    # xv1 = Variable(x)
     # hxv = Variable(hx)
     # hyv = Variable(hy)
     # hzv = Variable(hz)
-    #
-    # print('step by step')
 
     # f_r = f(x, hx)
     # f_chainer_r = f_chainer(xv, hxv)
-    # conv_r = conv(xv, hx)
+    # conv_r = conv(xv1, hx)
     #
-    # f_r_t = f(x.transpose([1, 0, 2, 3]), hy)
-    # f_chainer_r_t = f_chainer(transpose(xv, [1, 0, 2, 3]), hyv)
-    # conv_r_t = conv(xv, hy, [1, 0, 2, 3])
+    # f_r_t = f(x.transpose([2, 0, 1, 3]), hz)
+    # f_chainer_r_t = f_chainer(transpose(xv, [2, 0, 1, 3]), hzv)
+    # conv_r_t = conv(xv1, hz, [2, 0, 1, 3])
+    #
+    # f_chainer_t_s = sum(f_chainer_r_t)
+    # conv_t_s = sum(conv_r_t)
+    #
+    # f_chainer_t_s.backward()
+    # conv_t_s.backward()
+    #
+    # print(xv.grad[:, :, :, 0])
+    # print(xv1.grad[:, :, :, 0])
 
     # hyo = f(x.transpose([1, 0, 2, 3]), hy)
     # hzo = f(hyo.transpose([2, 0, 1, 3]), hz)
@@ -138,11 +156,18 @@ if __name__ == '__main__':
 
     #
     # print('step by step results')
-    #
+    # #
     # xi_r = xi(x, hx, hy, hz)
     # xi_chainer_r = xi_chainer(xv, hxv, hyv, hzv)
-    # kv_r = kernel_conv(xv, hx, hy, hz)
+    # kv_r = kernel_conv(xv1, hx, hy, hz)
+    #
+    # xi_chainer_s = sum(xi_chainer_r)
+    # kv_s = sum(kv_r)
+    #
+    # xi_chainer_s.backward()
+    # kv_s.backward()
+
     #
     # print('moving to debug')
     #
-    # print('debugging')
+    print('debugging')
