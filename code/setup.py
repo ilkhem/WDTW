@@ -1,12 +1,15 @@
-from distutils.core import setup, Extension
+"""
+to compile dtw_fast (cython code), run this command in your terminal:
+    python setup.py build_ext --inplace
+"""
+from distutils.core import setup
+
 import numpy
 from Cython.Build import cythonize
 
-# python setup.py build_ext --inplace
-
 setup(
-    name = 'dtw_fast',
-    ext_modules = cythonize("dtw_fast.pyx"),
+    name='dtw_fast',
+    ext_modules=cythonize("dtw_fast.pyx"),
     include_dirs=[numpy.get_include()]
 )
 

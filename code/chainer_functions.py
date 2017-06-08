@@ -4,13 +4,6 @@ from chainer import Function
 from chainer.utils import type_check
 
 
-def _check_ndim(in_type, lower=1, upper=2):
-    type_check.expect(
-        in_type.ndim >= lower,
-        in_type.ndim <= upper
-    )
-
-
 class Conv(Function):
     def __init__(self, h, axes):
         self.h = h
@@ -103,71 +96,3 @@ class Dot4d2d(Function):
 
 def dot42(a, b):
     return Dot4d2d()(a, b)
-
-
-if __name__ == '__main__':
-    print('debugging chainer_functions')
-    # from chainer import Variable
-    # from _utils import xi, xi_chainer, f, f_chainer
-    # from chainer.functions.array.transpose import transpose
-    # from chainer.functions.math.sum import sum
-    #
-    # d1 = 2
-    # d2 = 3
-    # d3 = 4
-    # x = np.arange(d1 * d2 * d3).reshape((d1, d2, d3, 1)).astype(np.float64)
-    # a, b = np.meshgrid(np.arange(d1), np.arange(d1))
-    # hx = np.exp(-np.power(np.abs(a - b), 2) / (2 * 1 ** 2))
-    # a, b = np.meshgrid(np.arange(d2), np.arange(d2))
-    # hy = np.exp(-np.power(np.abs(a - b), 2) / (2 * 1 ** 2))
-    # a, b = np.meshgrid(np.arange(d3), np.arange(d3))
-    # hz = np.exp(-np.power(np.abs(a - b), 2) / (2 * 1 ** 2))
-    #
-    # xv = Variable(x)
-    # xv1 = Variable(x)
-    # hxv = Variable(hx)
-    # hyv = Variable(hy)
-    # hzv = Variable(hz)
-
-    # f_r = f(x, hx)
-    # f_chainer_r = f_chainer(xv, hxv)
-    # conv_r = conv(xv1, hx)
-    #
-    # f_r_t = f(x.transpose([2, 0, 1, 3]), hz)
-    # f_chainer_r_t = f_chainer(transpose(xv, [2, 0, 1, 3]), hzv)
-    # conv_r_t = conv(xv1, hz, [2, 0, 1, 3])
-    #
-    # f_chainer_t_s = sum(f_chainer_r_t)
-    # conv_t_s = sum(conv_r_t)
-    #
-    # f_chainer_t_s.backward()
-    # conv_t_s.backward()
-    #
-    # print(xv.grad[:, :, :, 0])
-    # print(xv1.grad[:, :, :, 0])
-
-    # hyo = f(x.transpose([1, 0, 2, 3]), hy)
-    # hzo = f(hyo.transpose([2, 0, 1, 3]), hz)
-    # hxo = f(hzo.transpose([2, 1, 0, 3]), hx)
-    #
-    # hyvo = conv(xv, hy, [1, 0, 2, 3])
-    # hzov = conv(hyvo, hz, [2, 0, 1, 3])
-    # hxov = conv(hzov, hx, [2, 1, 0, 3])
-
-    #
-    # print('step by step results')
-    # #
-    # xi_r = xi(x, hx, hy, hz)
-    # xi_chainer_r = xi_chainer(xv, hxv, hyv, hzv)
-    # kv_r = kernel_conv(xv1, hx, hy, hz)
-    #
-    # xi_chainer_s = sum(xi_chainer_r)
-    # kv_s = sum(kv_r)
-    #
-    # xi_chainer_s.backward()
-    # kv_s.backward()
-
-    #
-    # print('moving to debug')
-    #
-    print('debugging')
