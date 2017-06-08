@@ -43,8 +43,8 @@ class Conv(Function):
         if self.axes:
             axes = [ax % len(self.axes) for ax in self.axes]
             inv_axes = list(np.argsort(axes))
-        print(self.axes)
-        print(inv_axes)
+        # print(self.axes)
+        # print(inv_axes)
         return xp.reshape(xp.dot(self.h.transpose(),
                                  xp.reshape(go,
                                             (self.h.shape[1], int(go.size / self.h.shape[1])))),
