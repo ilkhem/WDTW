@@ -75,7 +75,7 @@ def sinkhorn(a, b, n_iter=100, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2):
 
     d = xp.sum(xp.multiply(u, v_tilde), axis=(0, 1, 2))
 
-    return d.reshape((m, n))
+    return d
 
 
 def sinkhorn_chainer(a, b, n_iter=50, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2):
@@ -116,13 +116,60 @@ def sinkhorn_chainer(a, b, n_iter=50, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2
 
     u = Variable(xp.ones((d1, d2, d3, s), dtype=np.float64))
     for i in range(n_iter):
-        u = (A / kernel_conv((B / kernel_conv(u, hx, hy, hz)) ** tau, hx, hy, hz)) ** tau
+        if tau == 1:  # reduce memory footprint by not taking the power of tau
+            u = A / kernel_conv(B / kernel_conv(u, hx, hy, hz), hx, hy, hz)
+        else:
+            u = (A / kernel_conv((B / kernel_conv(u, hx, hy, hz)) ** tau, hx, hy, hz)) ** tau
         if i % 5 == 0:
             print('iteration %d: Umax = %f' % (i, xp.max(u.data)))
-    v = (B / kernel_conv(u, hx, hy, hz)) ** tau
+    if tau == 1:
+        v = B / kernel_conv(u, hx, hy, hz)
+    else:
+        v = (B / kernel_conv(u, hx, hy, hz)) ** tau
 
     v_tilde = kernel_conv(v, kx, hy, hz) + kernel_conv(v, hx, ky, hz) + kernel_conv(v, hx, hy, kz)
 
     d = sum(u * v_tilde, axis=(0, 1, 2))
 
-    return d.reshape((m, n))
+    return d
+
+
+if __name__ == '__main__':
+    print('debugging sinkhorn')
+
+    # from generate_data import generate_nice
+    # from _utils import prepare_gradient
+    #
+    # y = generate_nice()
+    #
+    # x0 = y[:, :, :, :, 0]
+    # x1 = y[:, :, :, :, 1]
+    #
+    # x0v = Variable(y[:, :, :, :, 0])
+    # x1v = Variable(y[:, :, :, :, 1])
+
+    # x00v = Variable(x0[:, :, :, 0])
+    # x01v = Variable(x0[:, :, :, 0].reshape((*x0.shape[:3], 1)))
+    #
+    # d_ref = sinkhorn(x0, x1)
+    # d0 = sinkhorn(x0[:, :, :, 0], x1)
+    # d00 = sinkhorn(x0[:, :, :, 0].reshape((*x0.shape[:3], 1)), x1)
+
+    # d_ref1 = sinkhorn_chainer(x0v, x1v)
+    # d1 = sinkhorn_chainer(x00v, x1v)
+    # d11 = sinkhorn_chainer(x01v, x1v)
+
+    # d = sinkhorn_chainer(x0v, x1v)
+    # prepare_gradient(d)
+    # d.backward()
+    #
+    # x00g = x0v.grad
+    #
+    # x0v.cleargrad()
+    #
+    # d0 = d[1]
+    # prepare_gradient(d0)
+    # d0.backward()
+    # x01g = x0v.grad
+    #
+    # print('first test')
