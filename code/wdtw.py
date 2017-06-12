@@ -19,7 +19,7 @@ def worker(a, b, **kwargs):
 
     av = Variable(a)
     bv = Variable(b)
-
+    print('forward')
     d = sinkhorn_chainer(av, bv, **kwargs)
 
     M = d.data
@@ -27,7 +27,7 @@ def worker(a, b, **kwargs):
     # The actual Jacobian Matrix is of size [(d1*d2*d3)*m]*mn, but since grad_{x_k} d(x_i,y_j) != 0 iif k == i, it is
     # a sparse Matrix and can thus be reduced to size [(d1*d2*d3)*m]*n, but omitting the n(m-1) zeros in each row.
     J = xp.empty(shape=(*a.shape[:3], m, n))
-
+    print('backward') 
     for j in range(n):
         d_ = d[:, j]
         av.cleargrad()
