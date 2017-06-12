@@ -75,7 +75,7 @@ def sinkhorn(a, b, n_iter=100, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2):
 
     d = xp.sum(xp.multiply(u, v_tilde), axis=(0, 1, 2))
 
-    return d
+    return d.reshape((m, n))
 
 
 def sinkhorn_chainer(a, b, n_iter=50, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2):
@@ -131,22 +131,22 @@ def sinkhorn_chainer(a, b, n_iter=50, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2
 
     d = sum(u * v_tilde, axis=(0, 1, 2))
 
-    return d
+    return d.reshape((m, n))
 
 
 if __name__ == '__main__':
     print('debugging sinkhorn')
 
-    # from generate_data import generate_nice
-    # from _utils import prepare_gradient
-    #
-    # y = generate_nice()
-    #
-    # x0 = y[:, :, :, :, 0]
-    # x1 = y[:, :, :, :, 1]
-    #
-    # x0v = Variable(y[:, :, :, :, 0])
-    # x1v = Variable(y[:, :, :, :, 1])
+    from generate_data import generate_nice
+    from _utils import prepare_gradient
+
+    y = generate_nice()
+
+    x0 = y[:, :, :, :, 0]
+    x1 = y[:, :, :, :, 1]
+
+    x0v = Variable(y[:, :, :, :, 0])
+    x1v = Variable(y[:, :, :, :, 1])
 
     # x00v = Variable(x0[:, :, :, 0])
     # x01v = Variable(x0[:, :, :, 0].reshape((*x0.shape[:3], 1)))
@@ -159,17 +159,21 @@ if __name__ == '__main__':
     # d1 = sinkhorn_chainer(x00v, x1v)
     # d11 = sinkhorn_chainer(x01v, x1v)
 
-    # d = sinkhorn_chainer(x0v, x1v)
-    # prepare_gradient(d)
-    # d.backward()
-    #
-    # x00g = x0v.grad
-    #
-    # x0v.cleargrad()
-    #
-    # d0 = d[1]
-    # prepare_gradient(d0)
-    # d0.backward()
-    # x01g = x0v.grad
-    #
-    # print('first test')
+    d = sinkhorn_chainer(x0v, x1v).reshape((4, 4))
+    prepare_gradient(d)
+    d.backward()
+
+    x00g = x0v.grad
+
+    x0v.cleargrad()
+
+    d0 = d[0, 1]
+    d1 = d[1, 1]
+    x0v.cleargrad()
+    d0.backward()
+    x01g = x0v.grad
+    x0v.cleargrad()
+    d1.backward()
+    x11g = x0v.grad
+
+    print('first test')

@@ -1,16 +1,11 @@
-import numpy as np
 import chainer.cuda as cuda
 import dtw_fast
-from chainer import Variable
-from chainer.functions.math.exponential import exp
-from chainer.functions.math.sum import sum
+import numpy as np
 
 
-# step 2
-def soft_dtw(M, beta=1.0, verbose=1):
+def soft_dtw(M, beta=1.0):
     """not CUDA ready: implementation based on NumPy/Cython"""
-    if verbose > 0:
-        print('Computing soft_dtw distance')
+    print('Computing soft_dtw distance')
     m, n = M.shape
     D = np.zeros((m + 2, n + 2), dtype=np.float64)  # We need +2 later for the gradient computation.
     dtw_fast.soft_dtw(M, D, beta=beta)
@@ -25,11 +20,9 @@ def soft_dtw_sec_grad(D, beta=1.0, verbose=1):
     m -= 2
     n -= 2
     D_bar = np.zeros_like(D, dtype=np.float64)
-    dtw_fast.soft_dtw_sec_grad(m, n, D, D_bar, beta)
-    return D_bar[1:-1, 1:-1]
+    dtw_fast.soft_dtw_grad(m, n, D, D_bar, beta)
+    return D_bar[1:-1, 1:-1].reshape(m * n)
 
-
-# step 3
 def soft_dtw_grad(D_bar, G, verbose=1):
     """CUDA ready: implementation based on NumPy/CuPy"""
     if verbose > 0:

@@ -99,7 +99,7 @@ cdef inline double _e(double a,
     return 1. / (1 + exp_b + exp_c)
 
 
-def soft_dtw_sec_grad(int m,
+def soft_dtw_grad(int m,
                       int n,
                       np.ndarray[double, ndim=2] D,
                       np.ndarray[double, ndim=2] D_bar,

@@ -1,44 +1,66 @@
-"""
-0.5- (CPU-GPU) Copy all data to GPU
-1- (GPU) Sinkhorn distances M and their gradients G are computed on GPU.
-1.5- (GPU-CPU) copy M to CPU
-2- (CPU) Using M compute D, d and D_bar.
-2.5- (CPU_GPU) copy D_bar to GPU
-3- (GPU) Compute final gradient final_G using G and D_bar.
-4- (GPU) Compute barycenter B using chainer optimization
-4.5- (GPU-CPU) B is copied to CPU.
-"""
-
-from scipy.optimize import minimize
-import numpy as np
-from sinkhorn import sinkhorn_chainer
-from chainer import Variable
 import chainer.cuda as cuda
+import numpy as np
+from chainer import Variable
+from scipy.optimize import minimize
+
+from _utils import prepare_gradient
 from sdtw import soft_dtw_grad, soft_dtw, soft_dtw_sec_grad
+from sinkhorn import sinkhorn_chainer
+
+
+def worker(a, b, **kwargs):
+    xp = cuda.get_array_module(a)
+    m = 1
+    if a.ndim == 4:
+        m = a.shape[3]
+    n = 1
+    if b.ndim == 4:
+        n = b.shape[3]
+
+    av = Variable(a)
+    bv = Variable(b)
+
+    d = sinkhorn_chainer(av, bv, **kwargs)
+
+    M = d.data
+
+    # The actual Jacobian Matrix is of size [(d1*d2*d3)*m]*mn, but since grad_{x_k} d(x_i,y_j) != 0 iif k == i, it is
+    # a sparse Matrix and can thus be reduced to size [(d1*d2*d3)*m]*n, but omitting the n(m-1) zeros in each row.
+    J = xp.empty(shape=(*a.shape[:3], m, n))
+
+    for j in range(n):
+        d_ = d[:, j]
+        av.cleargrad()
+        prepare_gradient(d_)
+        d_.backward()
+        J[:, :, :, :, j] = av.grad
+
+    return M, J
 
 
 # step 1
-def sinkhorn_dist_grad(At_, Bt_, verbose=1, **kwargs):
-    """CUDA ready: implementation based on NumPy/CuPy"""
+def sinkhorn_dist_grad(At_, Bt_, **kwargs):
     xp = cuda.get_array_module(At_)
 
-    m = At_.shape[-1]
-    n = Bt_.shape[-1]
+    m = 1
+    if At_.ndim == 4:
+        m = At_.shape[3]
+    n = 1
+    if Bt_.ndim == 4:
+        n = Bt_.shape[3]
+
     At = Variable(At_)
     Bt = Variable(Bt_)
 
-    if verbose > 1:
-        print('Computing Sinkhorn distances...')
-    d = sinkhorn_chainer(At, Bt, verbose=verbose, **kwargs)
+    print('Computing Sinkhorn distances...')
+    d = sinkhorn_chainer(At, Bt, **kwargs)
     M = d.data
 
-    if verbose > 1:
-        print('Computing gradients...')
+    print('Computing gradients...')
     G = xp.zeros((*At.shape, Bt.shape[-1]), dtype=np.float64)
     for i in range(m):
         for j in range(n):
-            if verbose > 1:
-                print(' element (%d, %d)' % (i, j))
+            print(' element (%d, %d)' % (i, j))
             At.cleargrad()
             d_ = d[i, j]
             d_.backward()
