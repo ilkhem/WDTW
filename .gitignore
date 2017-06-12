@@ -4,3 +4,6 @@ code/.idea/
 code/.DS_Store
 .DS_Store
 .idea/
+*.so
+*.o
+*.c
