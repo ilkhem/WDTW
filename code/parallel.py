@@ -39,7 +39,7 @@ if __name__ == '__main__':
     print(M1.shape)
     print(M2.shape)
 
-    M = np.concatenate(M1, M2)
+    M = np.concatenate([M1, M2])
     print(M.shape)
 
     d, D = soft_dtw(M)

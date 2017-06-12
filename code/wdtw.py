@@ -33,7 +33,7 @@ def worker(a, b, **kwargs):
         av.cleargrad()
         prepare_gradient(d_)
         d_.backward()
-        J[:, :, :, :, j] = av.grad
+        J[:, :, :, :, j] = av.grad.reshape((*a.shape[:3], m))
 
     return M, J
 
