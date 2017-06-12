@@ -22,7 +22,7 @@ def worker(a, b, **kwargs):
     print('forward')
     d = sinkhorn_chainer(av, bv, **kwargs)
 
-    M = d.data
+    M = cuda.to_cpu(d.data)
 
     # The actual Jacobian Matrix is of size [(d1*d2*d3)*m]*mn, but since grad_{x_k} d(x_i,y_j) != 0 iif k == i, it is
     # a sparse Matrix and can thus be reduced to size [(d1*d2*d3)*m]*n, but omitting the n(m-1) zeros in each row.

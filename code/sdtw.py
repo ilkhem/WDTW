@@ -21,7 +21,7 @@ def soft_dtw_sec_grad(D, beta=1.0, verbose=1):
     n -= 2
     D_bar = np.zeros_like(D, dtype=np.float64)
     dtw_fast.soft_dtw_grad(m, n, D, D_bar, beta)
-    return D_bar[1:-1, 1:-1].reshape(m * n)
+    return D_bar[1:-1, 1:-1]
 
 def soft_dtw_grad(D_bar, G, verbose=1):
     """CUDA ready: implementation based on NumPy/CuPy"""
