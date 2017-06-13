@@ -28,22 +28,25 @@ def worker_cpu(id, pipe, out_q, a, b, **kwargs):
     return a
 
 
-def worker_gpu(id, pipe, out_q, a, b, **kwargs):
-    print('process', id)
-    if a.ndim == 3:
-        a = a.reshape((*a.shape, 1))
+def worker_gpu(pid, pipe, out_q, a, b, **kwargs):
+    print('process', pid)
 
-    cuda.get_device_from_array(a).use()
+    cuda.get_device_from_id(pid).use()
+    print('copying to gpu')
+    ag = cuda.to_gpu(a, device=pid)
+    if ag.ndim == 3:
+        ag = ag.reshape((*a.shape, 1))
+    bg = cuda.to_gpu(b, device=pid)
 
-    M, J = sinkhorn_fb(a, b, **kwargs)
-    print('sending to main', id)
+    M, J = sinkhorn_fb(ag, bg, **kwargs)
+    print('sending to main', pid)
     pipe.send(M)
-    print('waiting to recv', id)
-    D_bar = cuda.to_gpu(pipe.recv(), device=cuda.get_device_from_array(a))
-    print('computing grad', id)
+    print('waiting to recv', pid)
+    D_bar = cuda.to_gpu(pipe.recv(), device=pid)
+    print('computing grad', pid)
     grad = J.dot(D_bar)
-    print('updating', id)
-    out_q.put({id: gradient_descent(a, grad, 0.1)})
+    print('updating', pid)
+    out_q.put({pid: gradient_descent(ag, grad, 0.1)})
 
 
 def _single_gradient_step(x, y):
@@ -58,20 +61,21 @@ def _single_gradient_step(x, y):
     p_pipes = []
     c_pipes = []
 
-    n = max(x.shape[3], GPU_COUNT)
-    x_gpu = []
-    y_gpu = []
-    for i in range(n):
-        print('copying to gpu')
-        x_gpu.append(cuda.to_gpu(x[:, :, :, i], device=i))
-        y_gpu.append(cuda.to_gpu(y, device=i))
+    n = min(x.shape[3], GPU_COUNT)
+    # x_gpu = []
+    # y_gpu = []
+    # for i in range(n):
+    #     print('copying to gpu')
+    #     x_gpu.append(cuda.to_gpu(x[:, :, :, i], device=i))
+    #     y_gpu.append(cuda.to_gpu(y, device=i))
 
     for i in range(n):
         # spawn a Process and a Pipe per GPU
         parent_pipe, child_pipe = Pipe()
         p_pipes.append(parent_pipe)
         c_pipes.append(child_pipe)
-        p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x_gpu[i], y_gpu[i],), kwargs={})
+        # p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x_gpu[i], y_gpu[i],), kwargs={})
+        p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x[:, :, :, i], y,), kwargs={})
         procs.append(p)
         p.start()
 
@@ -89,7 +93,7 @@ def _single_gradient_step(x, y):
     for p in procs:
         p.join()
 
-    return results, x_gpu, y_gpu
+    return results
 
 
 if __name__ == '__main__':
