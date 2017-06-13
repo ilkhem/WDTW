@@ -8,6 +8,7 @@ from sdtw import soft_dtw, soft_dtw_sec_grad
 from wdtw import sinkhorn_fb, gradient_descent
 
 GPU_COUNT = 7
+GPU_PRIORITY = [2, 6, 0, 1, 4, 5, 3]
 
 
 def worker_cpu(id, pipe, out_q, a, b, **kwargs):
@@ -47,6 +48,7 @@ def worker_gpu(pid, pipe, out_q, a, b, **kwargs):
     grad = J.dot(D_bar)
     print('updating', pid)
     out_q.put({pid: gradient_descent(ag, grad, 0.1)})
+    print('\t\tout of process', pid)
 
 
 def _single_gradient_step(x, y):
@@ -75,7 +77,7 @@ def _single_gradient_step(x, y):
         p_pipes.append(parent_pipe)
         c_pipes.append(child_pipe)
         # p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x_gpu[i], y_gpu[i],), kwargs={})
-        p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x[:, :, :, i], y,), kwargs={})
+        p = Process(target=worker_gpu, args=(GPU_PRIORITY[i], child_pipe, out_q, x[:, :, :, i], y,), kwargs={})
         procs.append(p)
         p.start()
 
@@ -87,7 +89,7 @@ def _single_gradient_step(x, y):
 
     results = {}
 
-    for i in range(GPU_COUNT):
+    for i in range(n):
         results.update(out_q.get())
 
     for p in procs:
