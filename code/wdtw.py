@@ -8,7 +8,7 @@ from sdtw import soft_dtw_grad, soft_dtw, soft_dtw_sec_grad
 from sinkhorn import sinkhorn_chainer
 
 
-def worker(a, b, **kwargs):
+def sinkhorn_fb(a, b, **kwargs):
     xp = cuda.get_array_module(a)
     m = 1
     if a.ndim == 4:
