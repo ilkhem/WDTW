@@ -4,7 +4,7 @@ from chainer import Variable
 from scipy.optimize import minimize
 
 from _utils import prepare_gradient
-from sdtw import soft_dtw_grad, soft_dtw, soft_dtw_sec_grad
+from sdtw import chain_rule, soft_dtw, soft_dtw_grad
 from sinkhorn import sinkhorn_chainer
 
 
@@ -112,8 +112,8 @@ def _loss(X_, Y_, verbose=1, beta=1, weights=None, cpu=False, **kwargs):
             M_cpu = cuda.to_cpu(M_gpu)
         else:
             M_cpu = M_gpu
-        d_cpu, D_cpu = soft_dtw(M_cpu, beta, verbose=verbose)
-        D_bar_cpu = soft_dtw_sec_grad(D_cpu, beta, verbose=verbose)
+        d_cpu, D_cpu = soft_dtw(M_cpu, beta)
+        D_bar_cpu = soft_dtw_grad(D_cpu, beta)
         if gpu:
             if verbose > 1:
                 print('_ copying to gpu')
@@ -121,7 +121,7 @@ def _loss(X_, Y_, verbose=1, beta=1, weights=None, cpu=False, **kwargs):
         else:
             D_bar_gpu = D_bar_cpu
 
-        final_G_gpu = soft_dtw_grad(D_bar_gpu, G_gpu, verbose=verbose)
+        final_G_gpu = chain_rule(D_bar_gpu, G_gpu)
         G += weights[i] * final_G_gpu
         d += weights[i] * d_cpu
     return d, G
@@ -149,7 +149,7 @@ def compute_wass_dist_grad_chainer(At_, Bt_, verbose=1, **kwargs):
 
     if verbose > 0:
         print('Computing Sinkhorn distances...')
-    d = sinkhorn_chainer(At, Bt, verbose=verbose, **kwargs)
+    d = sinkhorn_chainer(At, Bt, **kwargs)
 
     if verbose > 0:
         print('Computing gradients...')
@@ -184,7 +184,7 @@ def barycenter(Y, X_init, verbose=1, gpu=False, method="L-BFGS-B", beta=1.0, tol
         weights = np.ones(nb)
 
     def loss(X):
-        return _loss(X, Y, verbose=verbose, gpu=gpu, beta=beta, weights=weights)
+        return _loss(X, Y, verbose=verbose, gpu=gpu, weights=weights)
 
     # The function works with vectors so we need to vectorize Z_init.
     res = minimize(loss, X_init, method=method, jac=True,
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     print(G.shape)
 
     d, D = soft_dtw(M)
-    D_bar = soft_dtw_sec_grad(D)
+    D_bar = soft_dtw_grad(D)
     print(D_bar.shape)
-    final_grad = soft_dtw_grad(D_bar, G)
+    final_grad = chain_rule(D_bar, G)
     print(final_grad.shape)

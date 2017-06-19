@@ -12,10 +12,8 @@ def soft_dtw(M, beta=1.0):
     return D[m, n], D
 
 
-def soft_dtw_sec_grad(D, beta=1.0, verbose=1):
+def soft_dtw_grad(D, beta=1.0):
     """not CUDA ready: implementation based on NumPy/Cython"""
-    if verbose > 0:
-        print('Computing D_bar')
     m, n = D.shape
     m -= 2
     n -= 2
@@ -23,10 +21,9 @@ def soft_dtw_sec_grad(D, beta=1.0, verbose=1):
     dtw_fast.soft_dtw_grad(m, n, D, D_bar, beta)
     return D_bar[1:-1, 1:-1]
 
-def soft_dtw_grad(D_bar, G, verbose=1):
+
+def chain_rule(D_bar, G):
     """CUDA ready: implementation based on NumPy/CuPy"""
-    if verbose > 0:
-        print('Computing final gradient')
     xp = cuda.get_array_module(G)
     d1, d2, d3, m, n = G.shape
     assert D_bar.shape == (m, n)
