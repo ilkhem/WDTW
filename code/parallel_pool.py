@@ -23,13 +23,14 @@ def prepare_data(X, Y_list):
 
 
 def worker(x, y, gpuid, i, j, k):
-    print('Working on gpu %d for indices (%d, %d, %d)' % (gpuid, i, j, k))
-    l_ = lock[gpuid]
+    print('\tWorking on gpu %d for indices (%d, %d, %d)' % (gpuid, i, j, k))
+    l_ = locks[gpuid]
     with l_:  # lock access to GPU gpuid
         cuda.get_device_from_id(gpuid).use()  # current process will use GPU gpuid
         xg = cuda.to_gpu(x, device=gpuid)  # copy data to current GPU
         yg = cuda.to_gpu(y, device=gpuid)  # copy data to current GPU
-        M, J = sinkhorn_fb(xg, yg)  # compute sinkhorn distances, and gradient with respect to x
+        Mg, Jg = sinkhorn_fb(xg, yg)  # compute sinkhorn distances, and gradient with respect to x
+        M, J = cuda.to_cpu(Mg), cuda.to_cpu(Jg)
     return {(i, j, k): (M, J)}  # return a dict
 
 
@@ -38,17 +39,19 @@ def worker(x, y, gpuid, i, j, k):
 
 
 def init_locks(l):
-    global lock
-    lock = l
+    global locks
+    locks = l
 
 
 # example of the iterable: [(x, y, gpuid #the id of the gpu, i #index of x in X,  j #index of y in Y,
 # k #index of Y in Y_list), for Y in Y_list, for x in X, for y in Y, for gpuid in range(GPUCOUNT)]
 
 def main(args_list):
-    lock = [Lock()] * GPUCOUNT
-    pool = Pool(processes=GPUCOUNT, maxtasksperchild=4, initializer=init_locks, initargs=(lock,))
-    res = pool.starmap_async(worker, args_list, chunksize=1)
+    locks = []
+    for _ in range(GPUCOUNT):
+        locks.append(Lock())
+    pool = Pool(processes=GPUCOUNT, initializer=init_locks, initargs=(locks,))
+    res = pool.starmap(worker, args_list, chunksize=1)
     pool.close()
     pool.join()
 
