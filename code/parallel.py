@@ -4,50 +4,49 @@ import numpy as np
 from chainer import cuda
 
 from generate_data import generate_nice
-from sdtw import soft_dtw, soft_dtw_sec_grad
-from wdtw import sinkhorn_fb, gradient_descent
+from sinkhorn import sinkhorn_fb
+from sdtw import soft_dtw, soft_dtw_grad
+from wdtw import gradient_descent
 
 GPU_COUNT = 7
 GPU_PRIORITY = [2, 6, 0, 1, 4, 5, 3]
+GPU_PRIORITY_REVERSE = list(np.argsort(GPU_PRIORITY))
 
 
-def worker_cpu(id, pipe, out_q, a, b, **kwargs):
+def worker_cpu(pid, pipe, out_q, a, b, **kwargs):
     print('process', id)
-    if a.ndim == 3:
-        a = a.reshape((*a.shape, 1))
 
     M, J = sinkhorn_fb(a, b, **kwargs)
-    print('sending to main', id)
+    print('sending to main', pid)
     pipe.send(M)
-    print('waiting to recv', id)
+    print('waiting to recv', pid)
     D_bar = pipe.recv()
-    print('computing grad', id)
+    print('computing grad', pid)
     grad = J.dot(D_bar)
-    print('updating', id)
-    out_q.put({id: gradient_descent(a, grad, 0.1)})
+    print('updating', pid)
+    out_q.put({id: grad})
+    print('\t\tout of process', pid)
 
     return a
 
 
-def worker_gpu(pid, pipe, out_q, a, b, **kwargs):
+def worker_gpu(pid, i, j, pipe, out_q, a, b, **kwargs):
     print('process', pid)
 
     cuda.get_device_from_id(pid).use()
     print('copying to gpu')
     ag = cuda.to_gpu(a, device=pid)
-    if ag.ndim == 3:
-        ag = ag.reshape((*a.shape, 1))
     bg = cuda.to_gpu(b, device=pid)
 
     M, J = sinkhorn_fb(ag, bg, **kwargs)
     print('sending to main', pid)
     pipe.send(M)
     print('waiting to recv', pid)
-    D_bar = cuda.to_gpu(pipe.recv(), device=pid)
+    D_bar = pipe.recv()
     print('computing grad', pid)
-    grad = J.dot(D_bar)
+    grad = cuda.to_cpu(J).dot(D_bar)
     print('updating', pid)
-    out_q.put({pid: gradient_descent(ag, grad, 0.1)})
+    out_q.put({(i, j): grad})
     print('\t\tout of process', pid)
 
 
@@ -83,7 +82,7 @@ def _single_gradient_step(x, y):
 
     M = np.concatenate([ppe.recv() for ppe in p_pipes])
     d, D = soft_dtw(M)
-    D_bar = soft_dtw_sec_grad(D)
+    D_bar = soft_dtw_grad(D)
     for i in range(n):
         p_pipes[i].send(D_bar[i])
 
@@ -96,6 +95,71 @@ def _single_gradient_step(x, y):
         p.join()
 
     return results
+
+
+def barycenter_0(x, y_list, n_grad_iter=20, lr=0.1):
+    """
+    Computes the barycenter of a list of shape-timeseries
+    :param x: initial barycenter
+    :param y_list: list of shape-timeseries of which we need to compute the barycenter
+    :return: barycenter of y
+    """
+
+    y_lengths = [y.shape[3] for y in y_list]
+    j_total = sum(y_lengths)
+    # decide on the number of Processes to be spawn (parallel GPUs), this should be less than GPU_COUNT
+    n = min(x.shape[3] * j_total, GPU_COUNT)
+    big_y = np.concatenate([y for y in y_list], axis=-1)
+
+    y_step = 3
+    x_step = 1
+    current_x_loop = 0
+
+
+    for k in range(n_grad_iter):
+        print('----------- iteration %d -----------' % k)
+        grads = np.empty((x.shape[3], j_total, *x.shape[:3]))
+        for i in range(x.shape[3]):
+            for j in range(0, j_total, n):
+                out_q = Queue()
+                procs = []
+                p_pipes = []
+                c_pipes = []
+
+                for g in range(n):
+                    # spawn a Process and a Pipe per GPU
+                    parent_pipe, child_pipe = Pipe()
+                    p_pipes.append(parent_pipe)
+                    c_pipes.append(child_pipe)
+                    # p = Process(target=worker_gpu, args=(i, child_pipe, out_q, x_gpu[i], y_gpu[i],), kwargs={})
+                    p = Process(target=worker_gpu,
+                                args=(
+                                GPU_PRIORITY[g], i, j + g, child_pipe, out_q, x[:, :, :, i], big_y[:, :, :, j + g]),
+                                kwargs={})
+                    procs.append(p)
+                    p.start()
+
+                M = np.concatenate([ppe.recv() for ppe in p_pipes])
+                d, D = soft_dtw(M)
+                D_bar = soft_dtw_grad(D)
+                for g in range(n):
+                    p_pipes[g].send(D_bar[g])
+
+                results = {}
+
+                for g in range(n):
+                    results.update(out_q.get())
+
+                for p in procs:
+                    p.join()
+
+                for g in range(n):
+                    grads[g] += results[GPU_PRIORITY_REVERSE[g]]
+
+        for i in range(x.shape[3]):
+            x[:, :, :, i] = gradient_descent(x[:, :, :, i], grads[i], lr=0.1)
+
+    return x
 
 
 if __name__ == '__main__':
@@ -131,7 +195,7 @@ if __name__ == '__main__':
     # M = np.concatenate([M1, M2])
     # print('computing sdtw')
     # d, D = soft_dtw(M)
-    # D_bar = soft_dtw_sec_grad(D)
+    # D_bar = soft_dtw_grad(D)
     # print('sending to children')
     # s1.send(D_bar[0])
     # s2.send(D_bar[1])

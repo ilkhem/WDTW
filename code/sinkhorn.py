@@ -134,6 +134,36 @@ def sinkhorn_chainer(a, b, n_iter=50, mu=0.45, tau=1, min_thresh=1e-100, p_exp=2
     return d.reshape((m, n))
 
 
+def sinkhorn_fb(a, b, **kwargs):
+    xp = cuda.get_array_module(a)
+    m = 1
+    if a.ndim == 4:
+        m = a.shape[3]
+    n = 1
+    if b.ndim == 4:
+        n = b.shape[3]
+
+    av = Variable(a)
+    bv = Variable(b)
+    print('forward')
+    d = sinkhorn_chainer(av, bv, **kwargs)
+
+    M = cuda.to_cpu(d.data)
+
+    # The actual Jacobian Matrix is of size [(d1*d2*d3)*m]*mn, but since grad_{x_k} d(x_i,y_j) != 0 iif k == i, it is
+    # a sparse Matrix and can thus be reduced to size [(d1*d2*d3)*m]*n, but omitting the n(m-1) zeros in each row.
+    J = xp.empty(shape=(*a.shape[:3], m, n))
+    print('backward')
+    for j in range(n):
+        d_ = d[:, j]
+        av.cleargrad()
+        prepare_gradient(d_)
+        d_.backward()
+        J[:, :, :, :, j] = av.grad.reshape((*a.shape[:3], m))
+
+    return M, J
+
+
 if __name__ == '__main__':
     print('debugging sinkhorn')
 

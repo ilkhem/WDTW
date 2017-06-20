@@ -1,12 +1,10 @@
 import numpy as np
-from _utils import xi, xi_chainer, prepare_gradient, dot42
 import chainer.cuda as cuda
 from chainer import Variable
 from chainer.functions.math.exponential import exp
 from chainer.functions.math.logarithm_1p import log1p
 from chainer.functions.math.sum import sum
-import time
-from chainer.functions.array.reshape import reshape
+
 
 
 def softmin_chainer(a, b, c, beta=1.0):
