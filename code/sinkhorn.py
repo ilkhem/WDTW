@@ -8,7 +8,7 @@ from chainer import Variable
 from chainer import cuda
 from chainer.functions.math.sum import sum
 
-from _utils import xi
+from _utils import xi, prepare_gradient
 from chainer_functions import dot42, kernel_conv
 
 

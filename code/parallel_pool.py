@@ -65,23 +65,28 @@ def _single_gradient_step(X, Y_list):
         i, j, k = list(r.keys())[0]
         M, J = list(r.values())[0]
         M_glob[k][i, j] = M
-        J_glob[k][:, :, :, i, j] = J
+        J_glob[k][:, :, :, i, j] = J.squeeze()
 
     final_gradient = np.empty(x_shape)
+    final_energy = 0
     for M, J in zip(M_glob, J_glob):
         d, D = soft_dtw(M)
         D_bar = soft_dtw_grad(D)
-        final_gradient += J.dot(D_bar)
+        print(D_bar.shape, J.shape)
+        G = np.stack([J[:,:,:,i,:].dot(D_bar[i]) for i in range(X.shape[3])],axis=-1)
+        final_gradient += G
+        final_energy += d
 
-    return final_gradient
+    return final_energy, final_gradient
 
 
 def main(X, Y_list, lr, n_g_iter):
 
     x = X
 
-    for _ in n_g_iter:
-        g = _single_gradient_step(x, Y_list)
+    for _ in range(n_g_iter):
+        f, g = _single_gradient_step(x, Y_list)
+        print('\t\t Gradient Iteration %d: Energy = %f' % (_, f))
         x = gradient_descent(x, g, lr=lr, norm=True)
 
     return x
@@ -102,5 +107,5 @@ if __name__ == '__main__':
     X = y_[:, :, :, :, 0]
     Y_list = [y_[:, :, :, :, i] for i in range(1, y_.shape[4])]
 
-    res_dict = _single_gradient_step(X, Y_list)
+    res_dict = main(X, Y_list, lr=0.1, n_g_iter=20)
     print('done')
