@@ -3,9 +3,9 @@ from multiprocessing import Pool, Lock
 import numpy as np
 from chainer import cuda
 
-from sinkhorn import sinkhorn_fb
-from sdtw import soft_dtw, soft_dtw_grad
 from gradient_descent import gradient_descent
+from sdtw import soft_dtw, soft_dtw_grad
+from sinkhorn import sinkhorn_fb
 
 GPUCOUNT = 7
 GPU_PRIORITY = [2, 6, 0, 1, 4, 5, 3]
@@ -73,7 +73,7 @@ def _single_gradient_step(X, Y_list):
         d, D = soft_dtw(M)
         D_bar = soft_dtw_grad(D)
         print(D_bar.shape, J.shape)
-        G = np.stack([J[:,:,:,i,:].dot(D_bar[i]) for i in range(X.shape[3])],axis=-1)
+        G = np.stack([J[:, :, :, i, :].dot(D_bar[i]) for i in range(X.shape[3])], axis=-1)
         final_gradient += G
         final_energy += d
 
@@ -81,7 +81,6 @@ def _single_gradient_step(X, Y_list):
 
 
 def main(X, Y_list, lr, n_g_iter):
-
     x = X
 
     for _ in range(n_g_iter):
@@ -90,7 +89,6 @@ def main(X, Y_list, lr, n_g_iter):
         x = gradient_descent(x, g, lr=lr, norm=True)
 
     return x
-
 
 
 if __name__ == '__main__':
