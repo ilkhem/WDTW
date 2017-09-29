@@ -5,7 +5,8 @@ import numpy as np
 
 def soft_dtw(M, beta=1.0):
     """not CUDA ready: implementation based on NumPy/Cython"""
-    print('Computing soft_dtw distance')
+    # produces the actual soft-DTW distance, and the matrix used for the iterative process
+    print('\n** sDTW forward pass **')
     m, n = M.shape
     D = np.zeros((m + 2, n + 2), dtype=np.float64)  # We need +2 later for the gradient computation.
     dtw_fast.soft_dtw(M, D, beta=beta)
@@ -14,6 +15,9 @@ def soft_dtw(M, beta=1.0):
 
 def soft_dtw_grad(D, beta=1.0):
     """not CUDA ready: implementation based on NumPy/Cython"""
+    # iteratively compute the gradient of soft-DTW with respect to the pair-wise (sinkhorn) distance
+    # matrix produced by sinkhorn
+    print('\n** sDTW backward pass **')
     m, n = D.shape
     m -= 2
     n -= 2
@@ -22,12 +26,16 @@ def soft_dtw_grad(D, beta=1.0):
     return D_bar[1:-1, 1:-1]
 
 
-def chain_rule(D_bar, G):
+def wdtw_chain_rule(D_bar, J):
     """CUDA ready: implementation based on NumPy/CuPy"""
-    xp = cuda.get_array_module(G)
-    d1, d2, d3, m, n = G.shape
+    # applies the chain rule to compute the derivatives of WDTW with respect to the initial input a
+    print('\n** WDTW chain-ruling **')
+    xp = cuda.get_array_module(J)
+    m, d1, d2, d3, n = J.shape
     assert D_bar.shape == (m, n)
-    final_G = xp.zeros((d1, d2, d3, m), dtype=np.float64)
-    for i in range(m):
-        final_G[:, :, :, i] = xp.sum(D_bar[i] * G[:, :, :, i, :], axis=-1)
-    return final_G
+    G = xp.stack([J[i].dot(D_bar[i]) for i in range(m)], axis=0)
+    # final_G = xp.zeros((d1, d2, d3, m), dtype=np.float64)
+    # for i in range(m):
+    #     final_G[:, :, :, i] = xp.sum(D_bar[i] * G[:, :, :, i, :], axis=-1)
+    assert G.shape == (m, d1, d2, d3)
+    return G

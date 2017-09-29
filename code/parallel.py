@@ -4,8 +4,8 @@ import numpy as np
 from chainer import cuda
 
 from generate_data import generate_nice
-from sinkhorn import sinkhorn_fb
 from sdtw import soft_dtw, soft_dtw_grad
+from sinkhorn import sinkhorn_fb
 from wdtw import gradient_descent
 
 GPU_COUNT = 7

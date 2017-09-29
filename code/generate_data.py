@@ -25,7 +25,6 @@ def generate_single(d1=10, d2=10, d3=10):
 def generate_nice(d1=10, d2=10, d3=10, m=4, nb=3, thresh=1e-3):
     y = generate_multiple(d1, d2, d3, m, nb)
     y[y < thresh] = 0
-    y = y/np.sum(y, axis=(0,1,2))
-    print(np.sum(y, axis=(0,1,2)))
+    y = y / np.sum(y, axis=(0, 1, 2))
+    print(np.sum(y, axis=(0, 1, 2)))
     return y
-
